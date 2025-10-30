@@ -1,0 +1,146 @@
+const SHEET_ID = '1mcnvT5NLK9t5PtP4PaTClrCcSvlnHc5J'; // Google Sheet listing event title + published URL
+
+function doGet() {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Events');
+  const lastRow = sheet.getLastRow();
+
+  let data = [];
+  if (lastRow > 1) { // check if there are any data rows
+    data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+} 
+// If lastRow <= 1, data remains empty array
+
+  let html = `
+  <html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #e0e0e0;
+        color: #333;
+        margin: 0;
+        padding: 10px;
+        line-height: 1.5;
+        word-wrap: break-word;
+      }
+
+      h1 { text-align: center; margin-bottom: 20px; }
+
+      .wrapper {
+        width: 100%;
+        max-width: 100%;
+        padding-right: 10px;
+        box-sizing: border-box;
+      }
+
+      details {
+        width: 100%;
+        margin: 10px 0;
+        background: #ffffff;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      summary {
+        cursor: pointer;
+        font-size: 1.15em;
+        font-weight: bold;
+        padding: 10px;
+        outline: none;
+        display: block;
+      }
+
+      .content {
+        padding: 10px;
+        white-space: normal;
+      }
+
+      .content * {
+        font-family: Arial, sans-serif !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        margin: 0 0 10px 0; /* consistent spacing */
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 5px 0;
+      }
+
+      /* prevent collapsible overlap */
+      details[open] .content {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Event Listings</h1>
+    <div class="wrapper">
+  `;
+
+  data.forEach(row => {
+    const [title, url] = row;
+    const docHtml = fetchPublishedDoc(url);
+    html += `
+      <details>
+        <summary>${escapeHtml(title)}</summary>
+        <div class="content">${docHtml}</div>
+      </details>
+    `;
+  });
+
+  html += `
+    </div>
+    <script>
+      // Accordion behavior: only one open at a time
+      const detailsList = document.querySelectorAll('details');
+      detailsList.forEach(d => {
+        d.addEventListener('toggle', e => {
+          if (d.open) {
+            detailsList.forEach(other => {
+              if (other !== d) other.removeAttribute('open');
+            });
+          }
+        });
+      });
+
+      // Fix spacing / prevent overlap on small screens
+      window.addEventListener('resize', () => {
+        detailsList.forEach(d => d.style.marginBottom = '10px');
+      });
+    </script>
+  </body>
+  </html>
+  `;
+
+  return HtmlService.createHtmlOutput(html)
+    .setTitle('Event Listings')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function fetchPublishedDoc(url) {
+  try {
+    const resp = UrlFetchApp.fetch(url, { muteHttpExceptions:true });
+    let html = resp.getContentText();
+  
+    // Remove outer <html> and <body> tags
+    html = html.replace(/^[\s\S]*<body[^>]*>/i, '');
+    html = html.replace(/<\/body>[\s\S]*$/i, '');
+
+    // Strip any inline styles to avoid inconsistent formatting
+    html = html.replace(/ style="[^"]*"/g, '');
+    return html;
+  } catch(e) {
+    return `<p><em>Could not load content from ${url}</em></p>`;
+  }
+}
+
+function escapeHtml(text) {
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+             .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
