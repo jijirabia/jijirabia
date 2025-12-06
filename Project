@@ -1,6 +1,5 @@
 const SHEET_ID = '1mcnvT5NLK9t5PtP4PaTClrCcSvlnHc5J'; // Google Sheet listing event title + published URL
 
-
 function doGet() {
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Events');
   const lastRow = sheet.getLastRow();
